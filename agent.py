@@ -44,6 +44,8 @@ class SimplePineconeResearchAgent:
 
 I've searched the knowledge base for information related to: {query}
 
+If the user input is a greeting, casual conversation, or small talk, respond accordingly in a friendly tone.
+
 Here are the search results:
 {search_results}
 
@@ -70,16 +72,57 @@ Always prioritize information from the search results over your general knowledg
     def is_greeting(self, text):
         """Check if the user input is a greeting."""
         text = text.strip().lower()
-        return re.match(r"^(hi+|hello+|hey+|heya+|yo+|hai+)[!.\s]*$", text)
+        # Enhanced pattern to match more greeting variations
+        greeting_patterns = [
+            r"^(hi+|hello+|hey+|heya+|yo+|hai+)(\s+.*)?$",
+            r"^good\s+(morning|afternoon|evening|day)(\s+.*)?$"
+        ]
+        return any(re.match(pattern, text) for pattern in greeting_patterns)
 
+    # def query(self, user_input):
+    #     """Process a user query and return the response."""
+    #     try:
+    #         logger.info(f"Processing query: {user_input}")
+
+    #         # Handle greetings directly
+    #         if self.is_greeting(user_input):
+    #             return "Hello! How can I assist you with your research today?"
+
+    #         # Query the vector store
+    #         results = query_vector_store(user_input)
+
+    #         formatted_results = []
+    #         for i, result in enumerate(results):
+    #             formatted_results.append(self.format_result(result, i + 1))
+
+    #         if self.debug:
+    #             print("\n--- DEBUG: Direct Vector Store Query ---")
+    #             print(f"Found {len(results)} results directly from vector store")
+
+    #             display_count = min(len(results), self.max_results_to_show)
+    #             for i in range(display_count):
+    #                 print(f"\n{formatted_results[i]}")
+    #             if len(results) > self.max_results_to_show:
+    #                 print(f"\n... {len(results) - self.max_results_to_show} more results not shown ...")
+    #             print("--- End of Direct Query Results ---\n")
+
+    #         all_results_text = "\n\n".join(formatted_results)
+
+    #         prompt = self.prompt_template.format(
+    #             query=user_input,
+    #             search_results=all_results_text
+    #         )
+
+    #         response = self.llm.invoke(prompt)
+    #         return response.content
+
+    #     except Exception as e:
+    #         logger.exception(f"Error processing query: {e}")
+    #         return f"Error processing your query: {str(e)}"
     def query(self, user_input):
         """Process a user query and return the response."""
         try:
             logger.info(f"Processing query: {user_input}")
-
-            # Handle greetings directly
-            if self.is_greeting(user_input):
-                return "Hello! How can I assist you with your research today?"
 
             # Query the vector store
             results = query_vector_store(user_input)
@@ -91,17 +134,29 @@ Always prioritize information from the search results over your general knowledg
             if self.debug:
                 print("\n--- DEBUG: Direct Vector Store Query ---")
                 print(f"Found {len(results)} results directly from vector store")
-
-                display_count = min(len(results), self.max_results_to_show)
-                for i in range(display_count):
-                    print(f"\n{formatted_results[i]}")
-                if len(results) > self.max_results_to_show:
-                    print(f"\n... {len(results) - self.max_results_to_show} more results not shown ...")
-                print("--- End of Direct Query Results ---\n")
+                # Debug output code...
 
             all_results_text = "\n\n".join(formatted_results)
 
-            prompt = self.prompt_template.format(
+            # Updated prompt to handle conversational inputs and research questions
+            prompt = PromptTemplate(
+                input_variables=["query", "search_results"],
+                template="""You are a helpful research assistant with access to a specialized knowledge base.
+    You can also handle casual conversation naturally.
+
+    USER INPUT: {query}
+
+    If the user input is a greeting, casual conversation, or small talk, respond accordingly in a friendly tone.
+
+    For research questions, I've searched the knowledge base and found these results:
+    {search_results}
+
+    For research questions, provide a comprehensive answer based on the search results.
+    If the search results don't seem relevant or don't provide enough information, 
+    acknowledge this and provide a general answer based on your knowledge.
+
+    Always prioritize information from the search results over your general knowledge when available for research questions."""
+            ).format(
                 query=user_input,
                 search_results=all_results_text
             )
